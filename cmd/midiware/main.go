@@ -21,6 +21,7 @@ const outputName = "midiware"
 type config struct {
 	list   bool
 	device string
+	debug  bool
 }
 
 func main() {
@@ -34,6 +35,7 @@ func main() {
 func initconfig() *config {
 	cfg := &config{}
 	pflag.BoolVar(&cfg.list, "list", cfg.list, "List input MIDI devices")
+	pflag.BoolVar(&cfg.debug, "debug", cfg.debug, "Print debugging info for in/out data")
 	pflag.StringVar(&cfg.device, "device", cfg.device, "Input MIDI device")
 	return cfg
 }
@@ -67,6 +69,10 @@ func callback(data []byte, delta int64) {
 func run() error {
 	cfg := initconfig()
 	pflag.Parse()
+
+	if cfg.debug {
+		log.SetLevel(log.TraceLevel)
+	}
 
 	driver, err := rtmididrv.New()
 	if err != nil {
