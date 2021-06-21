@@ -7,11 +7,16 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/ambientsound/midiware/pkg/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"gitlab.com/gomidi/midi"
+	"gitlab.com/gomidi/midi/reader"
+	"gitlab.com/gomidi/midi/writer"
 	"gitlab.com/gomidi/rtmididrv"
 )
+
+const outputName = "midiware"
 
 type config struct {
 	list   bool
@@ -72,6 +77,16 @@ func run() error {
 		return list(driver)
 	}
 
+	output, err := driver.OpenVirtualOut(outputName)
+	if err != nil {
+		return fmt.Errorf("open virtual output MIDI device: %w", err)
+	}
+
+	defer output.Close()
+
+	wr := writer.New(output)
+	trans := translator.New(wr)
+
 	port, device := mididevice(cfg.device)
 
 	log.Infof("Using MIDI device #%d (%s)", port, device)
@@ -81,23 +96,23 @@ func run() error {
 		return fmt.Errorf("open MIDI device: %w", err)
 	}
 
-	err = input.SetListener(callback)
+	defer input.StopListening()
+	defer input.Close()
+
+	//err = input.SetListener(callback)
+	rd := reader.New(reader.NoLogger(), reader.Each(trans.Process))
+	err = rd.ListenTo(input)
 	if err != nil {
-		return fmt.Errorf("register callback: %w", err)
+		return fmt.Errorf("listen to MIDI channel: %w", err)
 	}
 
 	log.Infof("Listening for MIDI data...")
 
 	signals := make(chan os.Signal)
 	signal.Notify(signals, syscall.SIGINT)
-	<-signals
+	sig := <-signals
 
-	log.Infof("Closing MIDI port...")
-
-	err = input.Close()
-	if err != nil {
-		return err
-	}
+	log.Infof("Caught signal %d %s", sig, sig)
 
 	return nil
 }
