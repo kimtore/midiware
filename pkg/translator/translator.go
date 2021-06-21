@@ -112,16 +112,6 @@ func New(w midi.Writer) *Translator {
 	}
 }
 
-func (t *Translator) onOffNote(state bool) midi.Message {
-	if state {
-		return &channel.NoteOn{
-		}
-	} else {
-		return &channel.NoteOff{
-		}
-	}
-}
-
 func (t *Translator) TranslateNote(note Note) midi.Message {
 	key := note.Key()
 	mode := t.notes[key]
